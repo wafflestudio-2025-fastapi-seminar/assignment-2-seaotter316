@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from tests.util import get_all_src_py_files_hash
 from src.api import api_router
+from src.users.errors import MissingValueException
 
 app = FastAPI()
 
@@ -10,7 +12,9 @@ app.include_router(api_router)
 
 @app.exception_handler(RequestValidationError)
 def handle_request_validation_error(request, exc):
-    pass
+    raise MissingValueException()
+
+
 
 @app.get("/health")
 def health_check():
