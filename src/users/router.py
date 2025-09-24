@@ -1,9 +1,8 @@
 from typing import Annotated
 from argon2 import PasswordHasher
-import time
+from datetime import datetime, timezone, timedelta
 import os
 import jwt
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -73,11 +72,12 @@ def get_user_info(
         if sess is None:
             raise InvalidSessionException()
         
-        now = time.time()
-        if now >= sess["expires_at"]:
+        now = datetime.now(timezone.utc)
+        expires_at = sess.get("expires_at")
+        if not isinstance(expires_at, datetime) or now >=expires_at:
             raise InvalidSessionException()
         
-        new_expires = now + LONG_SESSION_LIFESPAN * 60
+        new_expires = now + timedelta(minutes=LONG_SESSION_LIFESPAN)
         sess["expires_at"] = new_expires
 
         
@@ -114,14 +114,17 @@ def get_user_info(
         try:
             payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         except jwt.PyJWTError:
-            InvalidTokenException()
+            raise InvalidTokenException()
         
         sub = payload.get("sub")
         original_exp = payload.get("exp")
         if sub is None or original_exp is None:
             raise InvalidTokenException()
 
-        uid = int(sub)
+        try:
+            uid = int(sub)
+        except Exception:
+            raise InvalidTokenException()
         user = next((u for u in user_db if int(u["user_id"]) == uid), None)
         if user is None:
             raise InvalidTokenException()

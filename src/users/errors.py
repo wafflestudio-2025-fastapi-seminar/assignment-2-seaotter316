@@ -61,7 +61,7 @@ class InvalidTokenException(CustomException):
         super().__init__(
             status_code=401,
             error_code="ERR_008",
-            error_message="	INVALID TOKEN"
+            error_message="INVALID TOKEN"
         )
 
 class UnauthenticatedException(CustomException):

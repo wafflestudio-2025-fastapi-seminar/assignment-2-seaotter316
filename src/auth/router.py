@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi import Depends, Cookie, Response, status, Header
 
 import secrets
-import time
+from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 import jwt
 import os
@@ -35,13 +35,15 @@ def issue_token(request: SessionLoginRequest, response: Response):
     except Exception:
         raise InvalidAccountException()
     
+    now = datetime.now(timezone.utc)
+
     access_payload = {
         "sub": str(user["user_id"]),
-        "exp": int(time.time()) + SHORT_SESSION_LIFESPAN*60
+        "exp": now + timedelta(minutes=SHORT_SESSION_LIFESPAN)
     }
     refresh_payload = {
         "sub": str(user["user_id"]),
-        "exp": int(time.time()) + LONG_SESSION_LIFESPAN*60
+        "exp": now + timedelta(minutes=LONG_SESSION_LIFESPAN)
     }
 
     access_token = jwt.encode(access_payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -77,13 +79,15 @@ def refresh_tokens(authorization: str | None = Header(default=None)):
     
     blocked_token_db[refresh_token] = original_exp
 
+    now = datetime.now(timezone.utc)
+
     access_payload = {
         "sub": str(sub),
-        "exp": int(time.time()) + SHORT_SESSION_LIFESPAN*60
+        "exp": now + timedelta(minutes=SHORT_SESSION_LIFESPAN)
     }
     refresh_payload = {
         "sub": str(sub),
-        "exp": int(time.time()) + LONG_SESSION_LIFESPAN*60
+        "exp": now + timedelta(minutes=LONG_SESSION_LIFESPAN)
     }
 
     access_token = jwt.encode(access_payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -108,7 +112,7 @@ def revoke_token(authorization: str | None = Header(default=None)):
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
-        InvalidTokenException()
+        raise InvalidTokenException()
     
     sub = payload.get("sub")
     original_exp = payload.get("exp")
@@ -117,7 +121,7 @@ def revoke_token(authorization: str | None = Header(default=None)):
     
     blocked_token_db[refresh_token] = original_exp
 
-    return
+    return {}
 
 
 @auth_router.post("/session", status_code=status.HTTP_200_OK)
@@ -137,7 +141,8 @@ def create_session(request: SessionLoginRequest, response: Response):
         raise InvalidAccountException()
 
     sid = secrets.token_urlsafe(32)
-    expires_at = time.time() + (LONG_SESSION_LIFESPAN * 60)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=LONG_SESSION_LIFESPAN)
     session_db[sid] = {
         "user_id": user["user_id"],
         "expires_at": expires_at
@@ -152,7 +157,7 @@ def create_session(request: SessionLoginRequest, response: Response):
         path="/"
     )
 
-    return response
+    return {}
 
 @auth_router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(response: Response, sid: str | None = Cookie(default=None)):
@@ -161,4 +166,4 @@ def delete_session(response: Response, sid: str | None = Cookie(default=None)):
     if sid is not None:
         session_db.pop(sid, None)
 
-    return response
+    return {}
