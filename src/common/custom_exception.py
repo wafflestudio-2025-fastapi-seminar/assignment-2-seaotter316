@@ -9,7 +9,7 @@ class CustomException(Exception):
         status_code: int = 500,
         error_code: str = "ERROR_000",
         error_message: str = "Unexpected error occurred"
-    ):
+    ): 
         if not isinstance(status_code, int) or status_code not in http.HTTPStatus.__members__.values():
             logger.critical(f"Invalid status_code {status_code} provided to CustomException, defaulting to 500")
             self.status_code = 500
